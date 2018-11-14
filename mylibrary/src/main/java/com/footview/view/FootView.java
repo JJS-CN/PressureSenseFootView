@@ -1,5 +1,8 @@
 package com.footview.view;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -14,6 +17,7 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 
+import com.footview.entity.FootValues;
 import com.footview.utils.SvgPathParser;
 
 import java.text.ParseException;
@@ -34,11 +38,29 @@ public class FootView extends View {
     private float[] mDashFootAll = new float[]{15, 15};//全脚掌的虚线间隔
     private float[] mDashFootOther = new float[]{8, 4};//其他位置的虚线间隔
 
+    //脚掌压力数据,初始都为0
+    private FootValues mLeftFootEntity = new FootValues() {
+        @Override
+        public float getValue(int position) {
+            return 0;
+        }
+    };
+    private FootValues mRightFootEntity = new FootValues() {
+        @Override
+        public float getValue(int position) {
+            return 0;
+        }
+    };
+    //绘制统一取值的entity
+    private FootValues mDrawFootEntity;
+    //保存动画执行期间，新进入数据的临时存储
+    private FootValues mSnapLeftFootEntity;
+    private FootValues mSnapRightFootEntity;
+    //此次动画执行的目标数据
+    private FootValues mAnimLeftFootEntity;
+    private FootValues mAnimRightFootEntity;
 
-    private FootEntity mLeftFootEntity = new FootEntity();//脚掌压力数据,初始都为0
-    private FootEntity mRightFootEntity = new FootEntity();
-    private FootEntity mDrawFootEntity;//绘制统一取值的entity
-
+    private float mAnimScale;//动画执行进度
 
     private SvgPathParser mSvgParser;//svg路径转换
     private float mSc;//基础缩放系数，缩放以适配view
@@ -70,7 +92,6 @@ public class FootView extends View {
 
             mScaleSvgPaths = new ArrayList<>();
             mFixedSvgPaths = new ArrayList<>();
-            mFixedSvgStrings = new ArrayList<>();
         }
 
         //左脚递进颜色值（由低到高）
@@ -88,8 +109,7 @@ public class FootView extends View {
 
         private List<PathStepEntity> mScaleSvgPaths;//需要缩放的path集合(处理与未处理共用一个集合，通过toPath方法进行处理)
 
-        private List<Path> mFixedSvgPaths;//不需要缩放的Path集合
-        private List<String> mFixedSvgStrings;//不需要缩放的Path集合(未处理临时存储的集合)
+        private List<PathStepEntity> mFixedSvgPaths;//不需要缩放的Path集合
     }
 
     public FootView(Context context) {
@@ -110,31 +130,30 @@ public class FootView extends View {
     private void init() {
         mSvgParser = new SvgPathParser();
         mParams = new FootParams();
-        getDefaultPath();
+        StringsToPaths();
     }
 
     private void getDefaultPath() {
-        if (mParams.mFixedSvgStrings != null && mParams.mFixedSvgStrings.size() == 0) {
+
+        if (mParams.mFixedSvgPaths != null && mParams.mFixedSvgPaths.size() == 0) {
             //不缩放Paths
-            mParams.mFixedSvgStrings = new ArrayList<>();
-            mParams.mFixedSvgStrings.add(getResources().getString(R.string.foot_right_all));
-            mParams.mFixedSvgStrings.add(getResources().getString(R.string.foot_right_toeAll));
-            mParams.mFixedSvgStrings.add(getResources().getString(R.string.foot_right_foreAll));
-            mParams.mFixedSvgStrings.add(getResources().getString(R.string.foot_right_hindAll));
+            mParams.mFixedSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_all)).isDefault());
+            mParams.mFixedSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toeAll)).isDefault());
+            mParams.mFixedSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_foreAll)).isDefault());
+            mParams.mFixedSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_hindAll)).isDefault());
         }
         if (mParams.mScaleSvgPaths != null && mParams.mScaleSvgPaths.size() == 0) {
             //缩放Paths
-            mParams.mScaleSvgPaths = new ArrayList<>();
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe1), 44 * mSc, 32 * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe2), 81.5f * mSc, 32.5f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe3), 104f * mSc, 39f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe4), 122f * mSc, 55f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe5), 133f * mSc, 73f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_foreBig), 108f * mSc, 121f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_foreSmall), 57f * mSc, 95f * mSc));
-            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_hind), 65f * mSc, 230f * mSc));
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe1), 44, 32).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe2), 81.5f, 32.5f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe3), 104f, 39f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe4), 122f, 55f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_toe5), 133f, 73f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_foreBig), 108f, 121f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_foreSmall), 57f, 95f).isDefault());
+            mParams.mScaleSvgPaths.add(new PathStepEntity(getResources().getString(R.string.foot_right_hind), 65f, 230f).isDefault());
         }
-        StringsToPaths();
+
     }
 
 
@@ -220,15 +239,15 @@ public class FootView extends View {
         /**
          * 设置不缩放的path路径集合
          *
-         * @param mFixedSvgStrings svgString路径集合，不缩放集合
+         * @param mFixedSvgEntitys svgString路径集合，不缩放集合
          */
-        public Builder setFixedSvgStrings(List<String> mFixedSvgStrings) {
-            mP.mFixedSvgStrings = mFixedSvgStrings;
+        public Builder setFixedSvgEntitys(List<PathStepEntity> mFixedSvgEntitys) {
+            mP.mFixedSvgPaths = mFixedSvgEntitys;
             return this;
         }
 
-        public Builder addFixedSvgString(String fixedSvgString) {
-            mP.mFixedSvgStrings.add(fixedSvgString);
+        public Builder addFixedSvgEntity(PathStepEntity fixedSvgEntity) {
+            mP.mFixedSvgPaths.add(fixedSvgEntity);
             return this;
         }
 
@@ -242,7 +261,7 @@ public class FootView extends View {
             return this;
         }
 
-        public Builder addScaleSvgString(PathStepEntity scaleSvgEntity) {
+        public Builder addScaleSvgEntity(PathStepEntity scaleSvgEntity) {
             mP.mScaleSvgPaths.add(scaleSvgEntity);
             return this;
         }
@@ -284,7 +303,7 @@ public class FootView extends View {
      */
     public void setFootParams(FootParams params) {
         mParams = params;
-        getDefaultPath();
+        StringsToPaths();
         invalidate();
     }
 
@@ -318,72 +337,95 @@ public class FootView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-
         //需要再计算纵向缩放，取最小值。并将图像放置于中央
-        //
-        //由于镜像会移至左边，需要进行移动。（）
-        canvas.translate(mFootWidth * mSc + (getWidth() - mFootWidth * mSc * 2) / 2, (getHeight() - mFootHeight * mSc) / 2);
-        canvas.save();
-        //对画布进行镜像翻转
-        canvas.scale(-1, 1, 0, 0);
-        mDrawFootEntity = mLeftFootEntity;
-        drawFoot(canvas, Gravity.LEFT);
-        canvas.restore();
-        //重置回原有
-        mDrawFootEntity = mRightFootEntity;
-        drawFoot(canvas, Gravity.RIGHT);
+        //固定区域绘制
+        if (mParams.mFixedSvgPaths != null) {
+            if (mParams.mFixedSvgPaths.get(0).isDefault) {
 
-    }
-
-    private void drawFoot(Canvas canvas, int gravity) {
-        //全脚掌区域
-        drawFootAll(canvas, mParams.mFixedSvgPaths.get(0));
-        //脚趾区域
-        drawToeAll(canvas, mParams.mFixedSvgPaths.get(1));
-        //前脚掌区域
-        drawForeAll(canvas, mParams.mFixedSvgPaths.get(2));
-        //后脚跟区域
-        drawHindAll(canvas, mParams.mFixedSvgPaths.get(3));
-
-        for (int i = 0; i < mParams.mScaleSvgPaths.size(); i++) {
-            if (i == 5 || i == 6) {
-                //由于我拿到的path路径有点问题，进行旋转适配
-                //所以和UI MM打好关系很重要
-                int layoutId = canvas.save();
-                canvas.rotate(18, 75.921695f * mSc, 122.155177f * mSc);
-                drawStep(canvas, mDrawFootEntity.getValue(i), mParams.mScaleSvgPaths.get(i), gravity);
-                canvas.restoreToCount(layoutId);
+                //由于镜像会移至左边，需要进行移动。（）
+                canvas.translate(mFootWidth * mSc + (getWidth() - mFootWidth * mSc * 2) / 2, (getHeight() - mFootHeight * mSc) / 2);
+                int layerId = canvas.save();
+                //对画布进行镜像翻转
+                canvas.scale(-1, 1, 0, 0);
+                drawDefaultFixedFoot(canvas);
+                canvas.restoreToCount(layerId);
+                //重置回原有
+                drawDefaultFixedFoot(canvas);
             } else {
-                drawStep(canvas, mDrawFootEntity.getValue(i), mParams.mScaleSvgPaths.get(i), gravity);
+                for (int i = 0; i < mParams.mFixedSvgPaths.size(); i++) {
+                    drawPathForAll(canvas, mParams.mFixedSvgPaths.get(i).getPath());
+                }
+            }
+        }
+        //缩放区域绘制
+        if (mParams.mScaleSvgPaths != null) {
+            if (mParams.mScaleSvgPaths.get(0).isDefault) {
+                //   canvas.translate(mFootWidth * mSc + (getWidth() - mFootWidth * mSc * 2) / 2, (getHeight() - mFootHeight * mSc) / 2);
+                int layerId = canvas.save();
+                //对画布进行镜像翻转
+                canvas.scale(-1, 1, 0, 0);
+
+                if (hasAnimation) {
+                    mDrawFootEntity = new FootValues() {
+                        @Override
+                        public float getValue(int position) {
+                            //在原压力数据基础下，计算动画差值
+                            return mLeftFootEntity.getValue(position) + (mAnimLeftFootEntity.getValue(position) - mLeftFootEntity.getValue(position)) * mAnimScale;
+                        }
+                    };
+                } else {
+                    mDrawFootEntity = mLeftFootEntity;
+                }
+                drawDefaultScaleFoot(canvas, Gravity.LEFT);
+                canvas.restoreToCount(layerId);
+                //重置回原有
+                if (hasAnimation) {
+                    mDrawFootEntity = new FootValues() {
+                        @Override
+                        public float getValue(int position) {
+                            //在原压力数据基础下，计算动画差值
+                            return mRightFootEntity.getValue(position) + (mAnimRightFootEntity.getValue(position) - mRightFootEntity.getValue(position)) * mAnimScale;
+                        }
+                    };
+                } else {
+                    mDrawFootEntity = mRightFootEntity;
+                }
+
+                drawDefaultScaleFoot(canvas, Gravity.RIGHT);
+            } else {
+                for (int i = 0; i < mParams.mScaleSvgPaths.size(); i++) {
+                    drawPathForAll(canvas, mParams.mScaleSvgPaths.get(i).getPath());
+                }
             }
         }
     }
 
     /**************************** 绘制固定Path路径 Start *********************************/
-    private void drawFootAll(Canvas canvas, Path Path) {
-        //绘制全脚掌
-        Paint paint = getPaint();
-        paint.setStrokeWidth(5);
-        paint.setPathEffect(new DashPathEffect(mDashFootAll, 0));
-        paint.setColor(Color.parseColor("#A4D2FC"));
-
-        canvas.drawPath(Path, paint);
-    }
-
-    private void drawToeAll(Canvas canvas, Path path) {
-        //绘制脚趾区域
-        drawPathForAll(canvas, path);
-    }
-
-    private void drawForeAll(Canvas canvas, Path path) {
-        int layoutId = canvas.save();
-        canvas.rotate(18, 75.921695f * mSc, 122.155177f * mSc);
-        drawPathForAll(canvas, path);
-        canvas.restoreToCount(layoutId);
-    }
-
-    private void drawHindAll(Canvas canvas, Path path) {
-        drawPathForAll(canvas, path);
+    private void drawDefaultFixedFoot(Canvas canvas) {
+        for (int i = 0; i < mParams.mFixedSvgPaths.size(); i++) {
+            if (i == 0) {
+                //绘制全脚掌
+                Paint paint = getPaint();
+                paint.setStrokeWidth(5);
+                paint.setPathEffect(new DashPathEffect(mDashFootAll, 0));
+                paint.setColor(Color.parseColor("#A4D2FC"));
+                canvas.drawPath(mParams.mFixedSvgPaths.get(0).getPath(), paint);
+            } else if (i == 1) {
+                //脚趾区域
+                drawPathForAll(canvas, mParams.mFixedSvgPaths.get(1).getPath());
+            } else if (i == 2) {
+                //前脚掌区域
+                int layoutId = canvas.save();
+                canvas.rotate(18, 75.921695f * mSc, 122.155177f * mSc);
+                drawPathForAll(canvas, mParams.mFixedSvgPaths.get(2).getPath());
+                canvas.restoreToCount(layoutId);
+            } else if (i == 3) {
+                //后脚跟区域
+                drawPathForAll(canvas, mParams.mFixedSvgPaths.get(i).getPath());
+            } else {
+                drawPathForAll(canvas, mParams.mFixedSvgPaths.get(i).getPath());
+            }
+        }
     }
 
     private void drawPathForAll(Canvas canvas, Path path) {
@@ -400,7 +442,23 @@ public class FootView extends View {
 
 
     /**************************** 绘制需要缩放Path路径 Start *********************************/
+    private void drawDefaultScaleFoot(Canvas canvas, int gravity) {
+        for (int i = 0; i < mParams.mScaleSvgPaths.size(); i++) {
+            if (i == 5 || i == 6) {
+                //由于我拿到的path路径有点问题，进行旋转适配
+                //所以和UI MM打好关系很重要
+                int layoutId = canvas.save();
+                canvas.rotate(18, 75.921695f * mSc, 122.155177f * mSc);
+                drawStep(canvas, mDrawFootEntity.getValue(i), mParams.mScaleSvgPaths.get(i), gravity);
+                canvas.restoreToCount(layoutId);
+            } else {
+                drawStep(canvas, mDrawFootEntity.getValue(i), mParams.mScaleSvgPaths.get(i), gravity);
+            }
+        }
+    }
+
     private void drawStep(Canvas canvas, float value, PathStepEntity entity, int gravity) {
+
         //压力等级(精确值)
         float step = getStepSize(value);
         //压力等级(层级值/模糊)
@@ -420,7 +478,7 @@ public class FootView extends View {
             //保存画布
             int layoutId = canvas.save();
             //根据设置好的缩放中心点，进行比例缩放
-            canvas.scale(mScSize, mScSize, entity.mScX, entity.mScY);
+            canvas.scale(mScSize, mScSize, entity.getScX(), entity.getScY());
             Paint paint = getPaint();
             paint.setStyle(Paint.Style.FILL);
             //设置颜色并绘制
@@ -438,8 +496,11 @@ public class FootView extends View {
         }
     }
 
+    /**************************** 绘制需要缩放Path路径 End *********************************/
+    /**
+     * 传入具体压力数值，返回压力等级
+     */
     private float getStepSize(float size) {
-        //传入压力数值，返回压力等级
         float s = 0;
         for (int i = 0; i < mParams.mPressureStepSizes.length; i++) {
             if (size < mParams.mPressureStepSizes[i]) {
@@ -463,64 +524,79 @@ public class FootView extends View {
     /**
      * 设置左右脚压力数据
      */
-    public void setFootEntity(FootEntity leftFootEntity, FootEntity rightFootEntity) {
-        mLeftFootEntity = leftFootEntity != null ? leftFootEntity : new FootEntity();
-        mRightFootEntity = rightFootEntity != null ? rightFootEntity : new FootEntity();
-        invalidate();
+    public void setFootEntity(FootValues leftFootEntity, FootValues rightFootEntity) {
+        mSnapLeftFootEntity = leftFootEntity;
+        mSnapRightFootEntity = rightFootEntity;
+        requestInvalidate();
     }
 
-    /**
-     * 脚掌压力数据
-     */
-    public static class FootEntity {
-        public float mToe1, mToe2, mToe3, mToe4, mToe5;//脚趾1-5
-        public float mForeBig, mForeSmall, mHind;//前脚掌大区域，前脚掌小区域，后脚跟区域
+    public void setLeftFootEntity(FootValues leftFootEntity) {
+        mSnapLeftFootEntity = leftFootEntity;
+        requestInvalidate();
+    }
 
-        public FootEntity() {
+    public void setRightFootEntity(FootValues rightFootEntity) {
+        mSnapRightFootEntity = rightFootEntity;
+        requestInvalidate();
+    }
 
-        }
+    private void requestInvalidate() {
+        //申请进行绘制，从中进行动画状态判断并拦截
+        if (hasAnimation) {
+            if (mAnimator == null) {
+                mAnimLeftFootEntity = mSnapLeftFootEntity != null ? mSnapLeftFootEntity : mLeftFootEntity;
+                mAnimRightFootEntity = mSnapRightFootEntity != null ? mSnapRightFootEntity : mRightFootEntity;
+                mSnapLeftFootEntity = null;
+                mSnapRightFootEntity = null;
 
-        public FootEntity(float toe1, float toe2, float toe3, float toe4, float toe5, float foreBig, float foreSmall, float hind) {
-            mToe1 = toe1;
-            mToe2 = toe2;
-            mToe3 = toe3;
-            mToe4 = toe4;
-            mToe5 = toe5;
-            mForeBig = foreBig;
-            mForeSmall = foreSmall;
-            mHind = hind;
-        }
-
-        public float getValue(int position) {
-            float value = 0;
-            switch (position) {
-                case 0:
-                    value = mToe1;
-                    break;
-                case 1:
-                    value = mToe2;
-                    break;
-                case 2:
-                    value = mToe3;
-                    break;
-                case 3:
-                    value = mToe4;
-                    break;
-                case 4:
-                    value = mToe5;
-                    break;
-                case 5:
-                    value = mForeBig;
-                    break;
-                case 6:
-                    value = mForeSmall;
-                    break;
-                case 7:
-                    value = mHind;
-                    break;
+                mAnimator = ValueAnimator.ofFloat(0f, 1f);
+                mAnimator.setDuration(mAnimMilliSecond);
+                mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        //动画过程中一直更新UI
+                        mAnimScale = (float) animation.getAnimatedValue();
+                        invalidate();
+                    }
+                });
+                //mAnimator.setInterpolator();
+                mAnimator.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
+                        //结束时将初始数据替换为动画数据
+                        mAnimator.cancel();
+                        mAnimator = null;
+                        mLeftFootEntity = mAnimLeftFootEntity;
+                        mRightFootEntity = mAnimRightFootEntity;
+                        //如果有snap数据，说明动画执行期间有新数据进入，再次执行动画
+                        if (mSnapLeftFootEntity != null || mSnapRightFootEntity != null) {
+                            requestInvalidate();
+                        }
+                    }
+                });
+                mAnimator.start();
             }
-            return value;
+        } else {
+            mLeftFootEntity = mSnapLeftFootEntity;
+            mRightFootEntity = mSnapRightFootEntity;
+            invalidate();
         }
+    }
+
+    private ValueAnimator mAnimator;//动画
+    private boolean hasAnimation;//是否需要动画过渡
+    private int mAnimMilliSecond;
+
+    /**
+     * 2次更新数据时是否需要动画过渡，在动画播放期间，设置的数据将不再执行
+     *
+     * @param hasAnimation    是否需要动画过渡
+     * @param animMilliSecond 动画执行时间间隔
+     */
+    public void hasAnimation(boolean hasAnimation, int animMilliSecond) {
+        this.hasAnimation = hasAnimation;
+        this.mAnimMilliSecond = animMilliSecond;
     }
 
     /**
@@ -535,20 +611,28 @@ public class FootView extends View {
 
         private float mLastScX;
         private float mLastScY;
-        private SvgPathParser mParser;
+        public boolean isDefault;
 
         public PathStepEntity(String svgString, float lastScX, float lastScY) {
             mSvgString = svgString;
             mLastScX = lastScX;
             mLastScY = lastScY;
-            mParser = new SvgPathParser();
+        }
+
+        public PathStepEntity(String svgString) {
+            mSvgString = svgString;
+        }
+
+        public PathStepEntity isDefault() {
+            this.isDefault = true;
+            return this;
         }
 
         public void toPath(float mSc) {
             mScX = mLastScX * mSc;
             mScY = mLastScY * mSc;
             try {
-                mPath = mParser.parsePath(mSc, mSvgString);
+                mPath = mSvgParser.parsePath(mSc, mSvgString);
             } catch (ParseException e) {
                 e.printStackTrace();
             }
@@ -567,23 +651,22 @@ public class FootView extends View {
         }
     }
 
+    /**
+     * 将svgString转换为path
+     */
     private void StringsToPaths() {
-        if (mSc == 0)
+        if (mSc <= 0)
             return;
-        try {
-            mParams.mFixedSvgPaths.clear();
-            if (mParams.mFixedSvgStrings != null) {
-                for (int i = 0; i < mParams.mFixedSvgStrings.size(); i++) {
-                    mParams.mFixedSvgPaths.add(mSvgParser.parsePath(mSc, mParams.mFixedSvgStrings.get(i)));
-                }
+        getDefaultPath();
+        if (mParams.mFixedSvgPaths != null) {
+            for (int i = 0; i < mParams.mFixedSvgPaths.size(); i++) {
+                mParams.mFixedSvgPaths.get(i).toPath(mSc);
             }
-            if (mParams.mScaleSvgPaths != null) {
-                for (int i = 0; i < mParams.mScaleSvgPaths.size(); i++) {
-                    mParams.mScaleSvgPaths.get(i).toPath(mSc);
-                }
+        }
+        if (mParams.mScaleSvgPaths != null) {
+            for (int i = 0; i < mParams.mScaleSvgPaths.size(); i++) {
+                mParams.mScaleSvgPaths.get(i).toPath(mSc);
             }
-        } catch (ParseException e) {
-            e.printStackTrace();
         }
     }
 
@@ -594,7 +677,7 @@ public class FootView extends View {
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-        if (changed && mParams.mFixedSvgPaths == null) {
+        if (changed) {
             float widthSc = getWidth() / (float) (mFootWidth * 2);
             float heightSc = getHeight() / mFootHeight;
             //获取msc
