@@ -24,23 +24,16 @@ A view for both feet‘s pressure sense.
 
 
 ### Activity
-    final FootView view = findViewById(R.id.foot);<Br/>
-        FootView.FootParams params = new FootView.Builder()<Br/>
-                //设置压力各层级所需压力<Br/>
-                .setPressureStepSizes(10f, 30f, 50f, 60f, 100f)<Br/>
-                //设置压力各层级内缩距离，相对于最大值<Br/>
-                .setScStepSize(0.1f, 0.2f, 0.5f)<Br/>
-                //设置每层的粘性缩放值<Br/>
-                .setScStick(0.9f)<Br/>
-                //设置每层的颜色值（左右）<Br/>
-                .setStepColors(Color.GREEN, Color.RED, Color.CYAN, Color.MAGENTA, Color.YELLOW)<Br/>
-                //分别设置左右脚的颜色值<Br/>
-                //.setStepColors(new int[]{},new int[]{})<Br/>
-                //设置不变的svg底图<Br/>
-                //.setFixedSvgEntitys()<Br/>
-                //设置缩放的svg路径，需要设置缩放中心点<Br/>
-                //.setScaleSvgEntitys()<Br/>
-                .build();<Br/>
+    final FootView view = findViewById(R.id.foot);
+        FootView.FootParams params = new FootView.Builder()
+                   .setPressureStepSizes(10f, 30f, 50f, 60f, 100f)//设置压力各层级所需压力
+                   .setScStepSize(0.1f, 0.2f, 0.5f)//设置压力各层级内缩距离，相对于最大值
+                   .setScStick(0.9f)//设置每层的粘性缩放值
+                   .setStepColors(Color.GREEN, Color.RED, Color.CYAN, Color.MAGENTA, Color.YELLOW)//设置每层的颜色值（左右）
+                   //.setStepColors(new int[]{},new int[]{}) //分别设置左右脚的颜色值
+                   //.setFixedSvgEntitys() //设置不变的svg底图
+                   //.setScaleSvgEntitys() //设置缩放的svg路径，需要设置缩放中心点
+                   .build();
         //应用参数
         view.setFootParams(params);
         //设置需要数值变化动画，并设置变化时间
