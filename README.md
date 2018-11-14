@@ -1,6 +1,21 @@
 # PressureSenseFootView
 A view for both feet‘s pressure sense.
 
+[![](https://www.jitpack.io/v/JJS-CN/PressureSenseFootView.svg)](https://www.jitpack.io/#JJS-CN/PressureSenseFootView)
+
+### 在项目目录下gradle添加仓库地址
+allprojects {
+		repositories {
+			...
+			maven { url 'https://www.jitpack.io' }
+		}
+	}
+
+### 在module目录下gradle添加项目地址
+	dependencies {
+    	        implementation 'com.github.JJS-CN:PressureSenseFootView:xxx'
+    	}
+
 ### xml
     <com.footview.view.FootView
             android:id="@+id/foot"
