@@ -64,7 +64,7 @@ public class FootView extends View {
 
     private SvgPathParser mSvgParser;//svg路径转换
     private float mSc;//基础缩放系数，缩放以适配view
-    private int mFootWidth = 150;//半个脚掌的宽度 px
+    private float mFootWidth = 150;//半个脚掌的宽度 px
     private float mFootHeight = 285f;//脚掌的高度 px
 
     private FootParams mParams;
@@ -334,6 +334,25 @@ public class FootView extends View {
         return mPaint;
     }
 
+    /**
+     * 尺寸测量
+     *
+     * @param widthMeasureSpec
+     * @param heightMeasureSpec
+     */
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+        int height = MeasureSpec.getSize(heightMeasureSpec);
+        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        //设置最小高度
+        if (heightMode == MeasureSpec.AT_MOST) {
+            float minH = mFootWidth / mFootHeight * width;
+            setMeasuredDimension(width, (int) minH);
+        }
+    }
 
     @Override
     protected void onDraw(Canvas canvas) {
@@ -539,6 +558,18 @@ public class FootView extends View {
         mSnapRightFootEntity = rightFootEntity;
         requestInvalidate();
     }
+
+    /**
+     * 设置svg图形参数的总宽高，在初次启动时用于mSc的计算，务必在onResume之前设置
+     *
+     * @param svgWidth  svg总图形的宽
+     * @param svgHeight svg总图形的高
+     */
+    public void setSvgPathSize(float svgWidth, float svgHeight) {
+        mFootWidth = svgWidth;
+        mFootHeight = svgHeight;
+    }
+
 
     private void requestInvalidate() {
         //申请进行绘制，从中进行动画状态判断并拦截
