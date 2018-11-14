@@ -1,23 +1,30 @@
 # PressureSenseFootView
 A view for both feet‘s pressure sense.
 
-#### xml
+### xml
     <com.footview.view.FootView
             android:id="@+id/foot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
 
-#### Activity
+### Activity
  final FootView view = findViewById(R.id.foot);
         FootView.FootParams params = new FootView.Builder()
-                .setPressureStepSizes(10f, 30f, 50f, 60f, 100f)//设置压力各层级所需压力
-                .setScStepSize(0.1f, 0.2f, 0.5f)//设置压力各层级内缩距离，相对于最大值
-                .setScStick(0.9f)//设置每层的粘性缩放值
-                .setStepColors(Color.GREEN, Color.RED, Color.CYAN, Color.MAGENTA, Color.YELLOW)//设置每层的颜色值（左右）
-                //.setStepColors(new int[]{},new int[]{}) //分别设置左右脚的颜色值
-                //.setFixedSvgEntitys() //设置不变的svg底图
-                //.setScaleSvgEntitys() //设置缩放的svg路径，需要设置缩放中心点
+                //设置压力各层级所需压力
+                .setPressureStepSizes(10f, 30f, 50f, 60f, 100f)
+                //设置压力各层级内缩距离，相对于最大值
+                .setScStepSize(0.1f, 0.2f, 0.5f)
+                //设置每层的粘性缩放值
+                .setScStick(0.9f)
+                //设置每层的颜色值（左右）
+                .setStepColors(Color.GREEN, Color.RED, Color.CYAN, Color.MAGENTA, Color.YELLOW)
+                //分别设置左右脚的颜色值
+                //.setStepColors(new int[]{},new int[]{})
+                //设置不变的svg底图
+                //.setFixedSvgEntitys()
+                //设置缩放的svg路径，需要设置缩放中心点
+                //.setScaleSvgEntitys()
                 .build();
         //应用参数
         view.setFootParams(params);
