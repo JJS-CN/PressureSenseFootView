@@ -12,8 +12,10 @@ A view for both feet‘s pressure sense.
 	}
 
 ### 在module目录下gradle添加项目地址
+    或者将latest.integration 改为对应版本号
+    [![](https://www.jitpack.io/v/JJS-CN/PressureSenseFootView.svg)](https://www.jitpack.io/#JJS-CN/PressureSenseFootView)
 	dependencies {
-    	        implementation 'com.github.JJS-CN:PressureSenseFootView:xxx'
+    	        implementation 'com.github.JJS-CN:PressureSenseFootView:latest.integration'
     	}
 
 ### xml
