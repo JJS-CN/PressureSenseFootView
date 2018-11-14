@@ -4,9 +4,9 @@ A view for both feet‘s pressure sense.
 [![](https://www.jitpack.io/v/JJS-CN/PressureSenseFootView.svg)](https://www.jitpack.io/#JJS-CN/PressureSenseFootView)
 
 ### 在项目目录下gradle添加仓库地址
-allprojects {
+    allprojects {
 		repositories {
-			...
+
 			maven { url 'https://www.jitpack.io' }
 		}
 	}
@@ -24,7 +24,7 @@ allprojects {
 
 
 ### Activity
- final FootView view = findViewById(R.id.foot);<Br/>
+    final FootView view = findViewById(R.id.foot);<Br/>
         FootView.FootParams params = new FootView.Builder()<Br/>
                 //设置压力各层级所需压力<Br/>
                 .setPressureStepSizes(10f, 30f, 50f, 60f, 100f)<Br/>
